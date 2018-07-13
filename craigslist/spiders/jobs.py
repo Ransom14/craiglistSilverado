@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import scrapy
-
+from scrapy import Request
 
 class JobsSpider(scrapy.Spider):
-    name = 'jobs'
-    allowed_domains = ['https://newyork.craigslist.org/search/egr']
-    start_urls = ['https://newyork.craigslist.org/search/egr/']
+    name = "jobs"
+    allowed_domains = ["craigslist.org"]
+    start_urls = ['https://minneapolis.craigslist.org/search/sss?query=silverado&sort=rel']
 
     def parse(self, response):
         jobs = response.xpath('//p[@class="result-info"]')
@@ -14,5 +14,23 @@ class JobsSpider(scrapy.Spider):
             address = job.xpath('span[@class="result-meta"]/span[@class="result-hood"]/text()').extract_first("")[2:-1]
             relative_url = job.xpath('a/@href').extract_first()
             absolute_url = response.urljoin(relative_url)
+            yield Request(absolute_url, callback=self.parse_page, meta={'URL': absolute_url, 'Title': title, 'Address':address})
 
-            yield{'URL':absolute_url, 'Title':title, 'Address':address}
+        relative_next_url = response.xpath('//a[@class="button next"]/@href').extract_first()
+        absolute_next_url = response.urljoin(relative_next_url)
+
+        yield Request(absolute_next_url, callback=self.parse)
+
+    def parse_page(self, response):
+        url = response.meta.get('URL')
+        title = response.meta.get('Title')
+        address = response.meta.get('Address')
+
+        description = "".join(line for line in response.xpath('//*[@id="postingbody"]/text()').extract())
+        name = response.xpath('//p[@class="attrgroup"]/span[1]/b/text()').extract_first()
+        cylinders = response.xpath('//p[@class="attrgroup"]/span[2]/b/text()').extract_first()
+        drive = response.xpath('//p[@class="attrgroup"]/span[3]/b/text()').extract_first()
+        fuel = response.xpath('//p[@class="attrgroup"]/span[4]/b/text()').extract_first()
+        miles = response.xpath('//p[@class="attrgroup"]/span[5]/b/text()').extract_first()
+
+        yield{'URL': url, 'Title': title, 'Address':address, 'Description':description, 'NAme':name, 'Cylinders':cylinders, 'Drive':drive, 'Fuel':fuel, 'Miles':miles}
